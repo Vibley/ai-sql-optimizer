@@ -14,4 +14,3 @@ This repo is ready to deploy to **GitHub Pages** using **GitHub Actions** — no
 - If your repo name differs, edit `vite.config.js` and change `base` to `/<your-repo-name>/`.
 - The UI’s analyze button uses `API_URL` in `src/App.jsx`. When your backend is live, set it to your API endpoint.
 - The “Pro Review” form posts to Formspree — replace the placeholder endpoint with your real one.
-
