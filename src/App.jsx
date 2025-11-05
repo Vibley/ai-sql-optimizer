@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-const API_URL = "/analyze"; // Update when backend is live
+const API_URL = "https://i-sql-optimizer-backend.onrender.com";
 
 export default function App() {
   const [dbms, setDbms] = useState("sqlserver");
