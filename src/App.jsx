@@ -29,40 +29,50 @@ export default function App() {
       .catch(() => setApiOk(false));
   }, []);
 
-  async function analyze() {
-    setLoading(true);
-    setError("");
-    setResult(null);
+async function analyze() {
+  setLoading(true);
+  setError("");
+  setResult(null);
 
-    const payload = {
-      dbms,
-      sql_text: sql,
-      plan_xml: plan || null,
-      context: ctx || null,
-      version: "2022",
-    };
+  const payload = {
+    dbms,
+    sql_text: sql,
+    plan_xml: plan || null,
+    context: ctx || null,
+    version: "2022",
+  };
 
-    try {
-      console.log("POST", API_URL, payload);
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`${res.status} ${res.statusText} — ${text.slice(0,200)}`);
-      }
-      const data = await res.json();
-      setResult(data);
-    } catch (e) {
-      setError(`API call failed: ${e.message}`);
-      // Optional: keep fallback disabled so errors are obvious
-      // setResult({ summary: "Demo: Example output for preview.", findings: ["Non-sargable predicate","Missing index"], rewrite_sql: "SELECT * FROM Example;", index_recommendations: ["CREATE INDEX IX_Example ..."], risks: ["Extra write overhead"], test_steps: ["Compare plan","Run benchmark"] });
-    } finally {
-      setLoading(false);
+  // Abort after 25s so UI never spins forever
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    console.log("POST", API_URL, payload);
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`${res.status} ${res.statusText}${text ? " — " + text.slice(0,200) : ""}`);
     }
+
+    const data = await res.json();
+    setResult(data);
+  } catch (e) {
+    const msg = e.name === "AbortError"
+      ? "Request timed out (25s). Backend might be waking up. Try again."
+      : `API call failed: ${e.message}`;
+    setError(msg);
+  } finally {
+    clearTimeout(t);
+    setLoading(false);
   }
+}
+
 
   async function sendForm(e) {
     e.preventDefault();
