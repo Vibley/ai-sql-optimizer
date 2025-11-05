@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-
 const API_URL = "https://i-sql-optimizer-backend.onrender.com/analyze"; // Backend on Render
 
 export default function App() {
