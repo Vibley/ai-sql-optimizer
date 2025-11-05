@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-// Absolute backend URLs
+// Absolute backend URLs (no relative paths)
 const API_URL    = "https://i-sql-optimizer-backend.onrender.com/analyze";
 const HEALTH_URL = "https://i-sql-optimizer-backend.onrender.com/health";
 
@@ -10,8 +10,8 @@ export default function App() {
   const [plan, setPlan] = useState("");
   const [ctx, setCtx] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
-  const [result,  setResult]  = useState(null);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", email: "", message: "" });
@@ -20,59 +20,59 @@ export default function App() {
   const [theme, setTheme] = useState("light");
   const isDark = theme === "dark";
 
-  const [apiOk, setApiOk] = useState(null); // single source of truth
+  const [apiOk, setApiOk] = useState(null);
 
-  // One simple health check on mount
+  // Health check once on mount
   useEffect(() => {
     fetch(HEALTH_URL)
       .then(r => setApiOk(r.ok))
       .catch(() => setApiOk(false));
   }, []);
 
-async function analyze() {
-  setLoading(true);
-  setError("");
-  setResult(null);
+  async function analyze() {
+    setLoading(true);
+    setError("");
+    setResult(null);
 
-  const payload = {
-    dbms,
-    sql_text: sql,
-    plan_xml: plan || null,
-    context: ctx || null,
-    version: "2022",
-  };
+    const payload = {
+      dbms,
+      sql_text: sql,
+      plan_xml: plan || null,
+      context: ctx || null,
+      version: "2022",
+    };
 
-  // Abort after 25s so UI never spins forever
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 25000);
+    // Abort after 25s so UI never spins forever
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 25000);
 
-  try {
-    console.log("POST", API_URL, payload);
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
+    try {
+      console.log("POST", API_URL, payload);
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`${res.status} ${res.statusText}${text ? " — " + text.slice(0,200) : ""}`);
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`${res.status} ${res.statusText}${text ? " — " + text.slice(0,200) : ""}`);
+      }
+
+      const data = await res.json();
+      setResult(data);
+    } catch (e) {
+      const msg = e.name === "AbortError"
+        ? "Request timed out (25s). Backend might be waking up. Try again."
+        : `API call failed: ${e.message}`;
+      setError(msg);
+    } finally {
+      clearTimeout(t);
+      setLoading(false);
     }
-
-    const data = await res.json();
-    setResult(data);
-  } catch (e) {
-    const msg = e.name === "AbortError"
-      ? "Request timed out (25s). Backend might be waking up. Try again."
-      : `API call failed: ${e.message}`;
-    setError(msg);
-  } finally {
-    clearTimeout(t);
-    setLoading(false);
   }
-}
-
 
   async function sendForm(e) {
     e.preventDefault();
@@ -114,7 +114,7 @@ async function analyze() {
     <div className={isDark ? "min-h-screen bg-[#0b1220] text-[#e6e9ef]" : "min-h-screen bg-[#e2e8f0] text-[#0f172a]"}>
       <div className="max-w-5xl mx-auto px-4 py-8">
         <header className={`sticky top-0 -mx-4 px-4 py-3 mb-6 backdrop-blur z-10 flex items-center justify-between ${isDark ? "bg-[#0b1220]/80 border-b border-[#23304b]" : "bg-[#f1f5f9]/90 border-b border-[#cbd5e1]"}`}>
-          {/* Left side: brand + API badge */}
+          {/* Left: brand + API badge */}
           <div className="flex items-center gap-3 font-extrabold">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 grid place-items-center text-white">NS</div>
             <span>NathSpire DBA Optimizer — AI SQL Analyzer</span>
@@ -125,19 +125,15 @@ async function analyze() {
               {apiOk===null ? "Checking API…" : apiOk ? "API Connected" : "API Offline"}
             </span>
           </div>
-          {/* Right side: CTA */}
-                 
-<button
-  type="button"              // <-- add this
-  onClick={analyze}          // <-- call analyze on click
-  disabled={loading}
-  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold disabled:opacity-60"
->
-  {loading ? "Analyzing…" : "Analyze"}
-   Get Pro Review
-</button>
-          
-          
+
+          {/* Right: CTA */}
+          <button
+            type="button"                 // prevent accidental form submit
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-indigo-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold"
+          >
+            Get Pro Review
+          </button>
         </header>
 
         {showForm && (
@@ -176,10 +172,17 @@ async function analyze() {
               <textarea value={ctx} onChange={(e) => setCtx(e.target.value)} rows={4} placeholder="Rowcounts, known indexes, parameters, symptoms" className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3" />
 
               <div className="flex items-center gap-3 mt-2">
-                <button onClick={analyze} disabled={loading} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold disabled:opacity-60">
+                <button
+                  type="button"   // <-- important
+                  onClick={analyze}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold disabled:opacity-60"
+                >
                   {loading ? "Analyzing…" : "Analyze"}
                 </button>
-                <span className="text-sm text-gray-500">{error ? error : "Anonymize identifiers; avoid PII."}</span>
+                <span className="text-sm text-gray-500">
+                  {loading ? "Contacting backend…" : (error || "Anonymize identifiers; avoid PII.")}
+                </span>
               </div>
             </div>
           </Section>
@@ -230,6 +233,7 @@ async function analyze() {
         <footer className={`text-sm mt-8 border-t pt-4 flex justify-between items-center ${isDark ? "text-[#98a2b3] border-[#23304b]" : "text-[#475569] border-[#cbd5e1]"}`}>
           <span>© {new Date().getFullYear()} NathSpire DBA Optimizer</span>
           <button
+            type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
             className="px-3 py-1 rounded-lg border border-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 font-semibold"
             title="Toggle Theme"
