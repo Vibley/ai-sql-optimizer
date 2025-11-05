@@ -126,12 +126,18 @@ async function analyze() {
             </span>
           </div>
           {/* Right side: CTA */}
-          <button
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-indigo-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold"
-          >
-            Get Pro Review
-          </button>
+                 
+<button
+  type="button"              // <-- add this
+  onClick={analyze}          // <-- call analyze on click
+  disabled={loading}
+  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold disabled:opacity-60"
+>
+  {loading ? "Analyzing…" : "Analyze"}
+   Get Pro Review
+</button>
+          
+          
         </header>
 
         {showForm && (
