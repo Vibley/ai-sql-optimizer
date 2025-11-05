@@ -1,4 +1,12 @@
 import React, { useState, useEffect } from "react";
+
+// ✅ ABSOLUTE URLs (no guessing, no replace bugs)
+const API_URL   = "https://i-sql-optimizer-backend.onrender.com/analyze";
+const HEALTH_URL= "https://i-sql-optimizer-backend.onrender.com/health";
+
+
+
+import React, { useState, useEffect } from "react";
 const API_URL = "https://i-sql-optimizer-backend.onrender.com/analyze"; // Backend on Render
 
 export default function App() {
@@ -17,6 +25,15 @@ export default function App() {
   const isDark = theme === "dark";
   const [apiOk, setApiOk] = useState(null);
 
+  const [apiOk, setApiOk] = useState(null);
+
+useEffect(() => {
+  fetch(HEALTH_URL)
+    .then(r => setApiOk(r.ok))
+    .catch(() => setApiOk(false));
+}, []);
+
+
   useEffect(() => {
     const healthUrl = API_URL.replace('/analyze','/health');
     fetch(healthUrl)
@@ -24,29 +41,45 @@ export default function App() {
       .catch(() => setApiOk(false));
   }, []);
 
-  async function analyze() {
-    setLoading(true);
-    setError("");
-    setResult(null);
+async function analyze() {
+  setLoading(true);
+  setError("");
+  setResult(null);
 
-    const payload = { dbms, sql_text: sql, plan_xml: plan || null, context: ctx || null, version: "2022" };
+  const payload = {
+    dbms,
+    sql_text: sql,
+    plan_xml: plan || null,
+    context: ctx || null,
+    version: "2022"
+  };
 
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const data = await res.json();
-      setResult(data);
-    } catch (e) {
-      setError(`Could not reach backend (${e.message}). Showing a demo response.`);
-      setResult({ summary: "Demo: Example output for preview.", findings: ["Non-sargable predicate", "Missing index"], rewrite_sql: "SELECT * FROM Example;", index_recommendations: ["CREATE INDEX IX_Example ..."], risks: ["Extra write overhead"], test_steps: ["Compare plan", "Run benchmark"] });
-    } finally {
-      setLoading(false);
+  try {
+    // Log the exact URL used (shows in DevTools console)
+    console.log("POST", API_URL, payload);
+
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`${res.status} ${res.statusText} — ${text.slice(0,200)}`);
     }
+
+    const data = await res.json();
+    setResult(data);
+  } catch (e) {
+    setError(`API call failed: ${e.message}`);
+    // (Optional) comment out the next two lines if you want to avoid demo fallback entirely
+    // setResult({ summary: "Demo: Example output for preview.", findings: ["Non-sargable predicate","Missing index"], rewrite_sql: "SELECT * FROM Example;", index_recommendations: ["CREATE INDEX IX_Example ..."], risks: ["Extra write overhead"], test_steps: ["Compare plan","Run benchmark"] });
+  } finally {
+    setLoading(false);
   }
+}
+
 
   async function sendForm(e) {
     e.preventDefault();
