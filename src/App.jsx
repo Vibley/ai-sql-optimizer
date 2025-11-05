@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-const API_URL = "https://i-sql-optimizer-backend.onrender.com";
+const API_URL = "https://i-sql-optimizer-backend.onrender.com/analyze"; // Backend on Render
 
 export default function App() {
   const [dbms, setDbms] = useState("sqlserver");
@@ -16,6 +16,14 @@ export default function App() {
   const [theme, setTheme] = useState("light");
 
   const isDark = theme === "dark";
+  const [apiOk, setApiOk] = useState(null);
+
+  useEffect(() => {
+    const healthUrl = API_URL.replace('/analyze','/health');
+    fetch(healthUrl)
+      .then(r => setApiOk(r.ok))
+      .catch(() => setApiOk(false));
+  }, []);
 
   async function analyze() {
     setLoading(true);
@@ -35,14 +43,7 @@ export default function App() {
       setResult(data);
     } catch (e) {
       setError(`Could not reach backend (${e.message}). Showing a demo response.`);
-      setResult({
-        summary: "Demo: Example output for preview.",
-        findings: ["Non-sargable predicate", "Missing index"],
-        rewrite_sql: "SELECT * FROM Example;",
-        index_recommendations: ["CREATE INDEX IX_Example ..."],
-        risks: ["Extra write overhead"],
-        test_steps: ["Compare plan", "Run benchmark"]
-      });
+      setResult({ summary: "Demo: Example output for preview.", findings: ["Non-sargable predicate", "Missing index"], rewrite_sql: "SELECT * FROM Example;", index_recommendations: ["CREATE INDEX IX_Example ..."], risks: ["Extra write overhead"], test_steps: ["Compare plan", "Run benchmark"] });
     } finally {
       setLoading(false);
     }
@@ -88,6 +89,11 @@ export default function App() {
         <header className={`sticky top-0 -mx-4 px-4 py-3 mb-6 backdrop-blur z-10 flex items-center justify-between ${isDark ? "bg-[#0b1220]/80 border-b border-[#23304b]" : "bg-[#f1f5f9]/90 border-b border-[#cbd5e1]"}`}>
           <div className="flex items-center gap-3 font-extrabold">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 grid place-items-center text-white">NS</div>
+            <span>NathSpire DBA Optimizer — AI SQL Analyzer</span>
+            <span className={`text-xs ml-3 px-2 py-1 rounded-md border ${apiOk===null ? 'border-gray-300 text-gray-600' : apiOk ? 'border-green-300 text-green-700' : 'border-rose-300 text-rose-700'}`}>
+              {apiOk===null ? 'Checking API…' : apiOk ? 'API Connected' : 'API Offline'}
+            </span>
+          </div>
             <span>NathSpire DBA Optimizer — AI SQL Analyzer</span>
           </div>
           <button
