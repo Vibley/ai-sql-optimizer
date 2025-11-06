@@ -128,7 +128,7 @@ export default function App() {
         <header className={`sticky top-0 -mx-4 px-4 py-3 mb-6 backdrop-blur z-10 flex items-center justify-between ${isDark ? "bg-[#0b1220]/80 border-b border-[#23304b]" : "bg-[#f1f5f9]/90 border-b border-[#cbd5e1]"}`}>
           {/* Left: brand */}
           <div className="flex items-center gap-3 font-extrabold">
-            <span className="text-2xl bg-gradient-to-br from-indigo-500 to-emerald-400 bg-clip-text text-transparent">Vibley DB Optimizer</span>
+            <span className="text-2xl bg-gradient-to-br from-indigo-500 to-emerald-400 bg-clip-text text-transparent">SQL Database Query Optimizer</span>
             <span className={isDark ? "text-gray-400" : "text-gray-600"}>— AI SQL Analyzer</span>
           </div>
 
