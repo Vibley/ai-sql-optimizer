@@ -184,10 +184,10 @@ export default function App() {
                   disabled={loading}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold disabled:opacity-60"
                 >
-                  {loading ? "Analyzing…" : "Analyze"}
+                  {loading ? "Analyzing SQL logic…" : "Analyze"}
                 </button>
                <span className={`text-sm ${noteText}`}>
-  {error || "Mining insights from your query…"}
+  {error || "Deep dive into your query"}
 </span>
                 
               </div>
