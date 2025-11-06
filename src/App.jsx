@@ -1,286 +1,273 @@
-import React, { useState } from "react";
+import os, json, re
+from typing import List, Optional
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+import sqlparse
 
-// Absolute backend URL (no relative paths)
-const API_URL = "https://i-sql-optimizer-backend.onrender.com/analyze";
+# --- Remove any proxy envs that could confuse OpenAI/httpx ---
+for k in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy", "OPENAI_PROXY"]:
+    os.environ.pop(k, None)
 
-export default function App() {
-  const [dbms, setDbms] = useState("sqlserver");
-  const [sql, setSql] = useState("");
-  const [plan, setPlan] = useState("");
-  const [ctx, setCtx] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
+# Optional: log OpenAI SDK version at startup (helps verify cache/pin)
+try:
+    import openai  # noqa: F401
+    import logging
+    logging.getLogger("uvicorn.error").info(f"OpenAI SDK version: {openai.__version__}")
+except Exception:
+    pass
 
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ name: "", email: "", message: "" });
-  const [formStatus, setFormStatus] = useState("");
+ALLOW_ORIGIN = os.getenv("ALLOW_ORIGIN", "*")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-  const [theme, setTheme] = useState("light");
-  const isDark = theme === "dark";
+app = FastAPI(title="AI SQL Optimizer Backend", version="1.2.0")
 
-  async function analyze() {
-    setLoading(true);
-    setError("");
-    setResult(null);
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[ALLOW_ORIGIN] if ALLOW_ORIGIN != "*" else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    const payload = {
-      dbms,
-      sql_text: sql,
-      plan_xml: plan || null,
-      context: ctx || null,
-      version: "2022",
-    };
+# ---------- Models ----------
+class AnalyzeRequest(BaseModel):
+    dbms: str = "sqlserver"
+    sql_text: str
+    plan_xml: Optional[str] = None
+    context: Optional[str] = None
+    version: Optional[str] = None
 
-    // Abort after 25s so UI never spins forever
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 25000);
+class AnalyzeResponse(BaseModel):
+    summary: str
+    findings: List[str] = Field(default_factory=list)
+    rewrite_sql: Optional[str] = None
+    index_recommendations: List[str] = Field(default_factory=list)
+    risks: List[str] = Field(default_factory=list)
+    test_steps: List[str] = Field(default_factory=list)
 
-    try {
-      console.log("POST", API_URL, payload);
+# ---------- Static rules + simple rewrites ----------
+def static_rules(sql: str):
+    """
+    Returns:
+      findings: List[str]
+      rewrite_out: Optional[str]  (either a concrete rewrite or guidance comments)
+      index_recs: List[str]
+      risks: List[str]
+    """
+    findings, rewrites, index_recs, risks = [], [], [], []
+    sql_norm = sql.strip()
 
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
+    # Compact upper-case copy for pattern checks
+    sql_compact = re.sub(r"\s+", " ", sql_norm, flags=re.MULTILINE).upper()
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`${res.status} ${res.statusText}${text ? " — " + text.slice(0, 200) : ""}`);
-      }
+    # SELECT *
+    if re.search(r"\bSELECT\s+\*\b", sql_compact):
+        findings.append("Avoid SELECT *. Project only required columns.")
+        risks.append("Extra I/O and wider rows reduce buffer cache efficiency.")
+        rewrites.append("-- Replace SELECT * with only required columns.")
 
-      const data = await res.json();
-      setResult(data);
-    } catch (e) {
-      const msg =
-        e.name === "AbortError"
-          ? "Request timed out (25s). Backend might be waking up. Try again."
-          : `API call failed: ${e.message}`;
-      setError(msg);
-    } finally {
-      clearTimeout(t);
-      setLoading(false);
-    }
-  }
+    # Leading wildcard LIKE
+    if re.search(r"LIKE\s+['\"]%[^'\"]+['\"]", sql_compact):
+        findings.append("Leading wildcard LIKE prevents index seeks.")
+        rewrites.append("-- Consider full-text index (CONTAINS) or trigram search.")
+        risks.append("Full scans on large tables can be expensive.")
 
-  async function sendForm(e) {
-    e.preventDefault();
-    setFormStatus("Sending...");
-    try {
-      await fetch("https://formspree.io/f/your-id", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          Name: formData.name,
-          Email: formData.email,
-          Message: formData.message,
-          DBMS: dbms,
-          SQL: sql,
-          Plan: plan,
-          Context: ctx,
-        }),
-      });
-      setFormStatus("Message sent successfully!");
-      setFormData({ name: "", email: "", message: "" });
-    } catch {
-      setFormStatus("Error sending message. Try again.");
-    }
-  }
+    # Non-sargable function on column
+    if re.search(r"WHERE\s+.*\b(YEAR|MONTH|DAY|DATEADD|DATEDIFF|SUBSTRING|CAST|CONVERT)\s*\(", sql_compact):
+        findings.append("Non-sargable predicate (function on column) blocks index seeks.")
+        rewrites.append("-- Rewrite to a range predicate on the raw column when possible.")
 
-  function Section({ title, children }) {
-    const bg = isDark
-      ? "bg-[#0f172a] border-[#23304b] text-[#e6e9ef]"
-      : "bg-[#f8fafc] border-[#cbd5e1] text-[#0f172a]";
-    return (
-      <div className={`${bg} border rounded-2xl p-5`}>
-        <h3 className="text-lg font-semibold mb-2">{title}</h3>
-        {children}
-      </div>
-    );
-  }
+    # OR conditions
+    if re.search(r"\bWHERE\b.*\bOR\b", sql_compact):
+        findings.append("OR conditions may reduce index usage; consider UNION ALL or indexed computed columns.")
 
-  return (
-    <div className={isDark ? "min-h-screen bg-[#0b1220] text-[#e6e9ef]" : "min-h-screen bg-[#e2e8f0] text-[#0f172a]"}>
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <header
-          className={`sticky top-0 -mx-4 px-4 py-3 mb-6 backdrop-blur z-10 flex items-center justify-between ${
-            isDark ? "bg-[#0b1220]/80 border-b border-[#23304b]" : "bg-[#f1f5f9]/90 border-b border-[#cbd5e1]"
-          }`}
-        >
-          {/* Left: brand */}
-          <div className="flex items-center gap-3 font-extrabold">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 grid place-items-center text-white">
-              NS
-            </div>
-            <span>Database Query Optimizer —AI SQL Analyzer</span>
-          </div>
+    # ORDER BY without JOIN
+    if "ORDER BY" in sql_compact and "JOIN" not in sql_compact:
+        findings.append("ORDER BY detected; ensure index supports ORDER BY key(s).")
 
-          {/* Right: CTA */}
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-indigo-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold"
-          >
-            Get Pro Review
-          </button>
-        </header>
+    # JOIN without WHERE
+    if "WHERE" not in sql_compact and "JOIN" in sql_compact:
+        findings.append("JOIN without WHERE may explode rows; verify join predicates and filters.")
 
-        {showForm && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div
-              className={
-                (isDark
-                  ? "bg-[#0f172a] text-[#e6e9ef] border border-[#23304b]"
-                  : "bg-white text-[#0f172a] border border-[#cbd5e1]") + " rounded-2xl p-6 w-full max-w-md relative shadow-lg"
-              }
-            >
-              <button onClick={() => setShowForm(false)} className="absolute top-3 right-3 text-[#64748b]">
-                ✕
-              </button>
-              <h3 className="text-xl font-semibold mb-4">Request a Pro Review</h3>
-              <form onSubmit={sendForm} className="grid gap-3">
-                <input
-                  type="text"
-                  placeholder="Your Name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="bg-gray-100 border border-gray-300 rounded-xl p-3"
-                  required
-                />
-                <input
-                  type="email"
-                  placeholder="Your Email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="bg-gray-100 border border-gray-300 rounded-xl p-3"
-                  required
-                />
-                <textarea
-                  placeholder="Message or additional details"
-                  value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  className="bg-gray-100 border border-gray-300 rounded-xl p-3"
-                  rows={4}
-                ></textarea>
-                <button type="submit" className="bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-xl p-3 font-semibold text-white">
-                  Send
-                </button>
-                <p className="text-sm text-center text-gray-500">{formStatus}</p>
-              </form>
-            </div>
-          </div>
-        )}
+    # ---------- Simple static rewrite candidates ----------
+    base_rewrite_sql = None
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <Section title="Input">
-            <div className="grid gap-3">
-              <label className="text-sm">DBMS</label>
-              <select value={dbms} onChange={(e) => setDbms(e.target.value)} className="bg-gray-100 border border-gray-300 rounded-xl p-2">
-                <option value="sqlserver">SQL Server</option>
-                <option value="postgres">PostgreSQL</option>
-                <option value="mysql">MySQL</option>
-              </select>
+    # Heuristic 1: WHERE YEAR(col) = 2024  -->  col >= '2024-01-01' AND col < '2025-01-01'
+    year_eq = re.search(
+        r"(?P<prefix>\bWHERE\b.*?)(?P<yr>YEAR)\s*\(\s*(?P<col>[A-Za-z0-9_\.\[\]]+)\s*\)\s*=\s*(?P<yyyy>20\d{2}|19\d{2})",
+        sql_norm,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if year_eq:
+        col = year_eq.group("col")
+        yyyy = int(year_eq.group("yyyy"))
+        start = f"'{yyyy:04d}-01-01'"
+        next_year = f"'{(yyyy+1):04d}-01-01'"
+        range_pred = f"{col} >= {start} AND {col} < {next_year}"
+        base_rewrite_sql = re.sub(
+            r"\bYEAR\s*\(\s*"+re.escape(col)+r"\s*\)\s*=\s*"+str(yyyy),
+            range_pred,
+            sql_norm,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+        if "Non-sargable predicate" not in " ".join(findings):
+            findings.append("Non-sargable predicate (function on column) blocks index seeks.")
+        rewrites.append("-- Replaced YEAR(col)=YYYY with a sargable date range.")
 
-              <label className="text-sm mt-2">SQL Text</label>
-              <textarea
-                value={sql}
-                onChange={(e) => setSql(e.target.value)}
-                rows={10}
-                placeholder="Paste SQL here (anonymize identifiers if possible)"
-                className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3"
-              />
+    # ---------- Index key guess based on equality predicates ----------
+    m = re.findall(r"\b([A-Z_][A-Z0-9_\.]+)\s*=\s*[@:\w'\-]+", sql_compact)
+    if m:
+        cols = [col.split(".")[-1].lower() for col in m]
+        cols = list(dict.fromkeys(cols))[:3]  # de-dupe, keep first 3
 
-              <label className="text-sm mt-2">Execution Plan XML (optional)</label>
-              <textarea
-                value={plan}
-                onChange={(e) => setPlan(e.target.value)}
-                rows={6}
-                placeholder="Paste estimated/actual plan XML"
-                className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3"
-              />
+        # Try to extract table name from query (FROM first, then JOIN), then lowercase
+        tbl_match = re.search(r"\bFROM\s+([A-Z0-9_\.\[\]]+)", sql_compact)
+        if not tbl_match:
+            tbl_match = re.search(r"\bJOIN\s+([A-Z0-9_\.\[\]]+)", sql_compact)
+        table_name = tbl_match.group(1).lower() if tbl_match else "<yourtable>"
 
-              <label className="text-sm mt-2">Context</label>
-              <textarea
-                value={ctx}
-                onChange={(e) => setCtx(e.target.value)}
-                rows={4}
-                placeholder="Rowcounts, known indexes, parameters, symptoms"
-                className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3"
-              />
+        if cols:
+            index_recs.append(
+                f"create index ix_{cols[0]}_suggested on {table_name} ({', '.join(cols)});"
+            )
 
-              <div className="flex items-center gap-3 mt-2">
-                <button
-                  type="button"
-                  onClick={analyze}
-                  disabled={loading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold disabled:opacity-60"
-                >
-                  {loading ? "Analyzing…" : "Analyze"}
-                </button>
-                <span className="text-sm text-gray-500">
-                  {loading ? "Contacting backend…" : error || "Anonymize identifiers; avoid PII."}
-                </span>
-              </div>
-            </div>
-          </Section>
+    # Build a single rewrite string if we collected guidance lines and/or a concrete rewrite
+    guidance = "\n".join(rewrites) if rewrites else None
+    rewrite_out = base_rewrite_sql or guidance  # prefer concrete rewrite, fallback to comments
 
-          <Section title="Results">
-            {!result && <p className="text-gray-500">No analysis yet. Paste a query and click Analyze.</p>}
-            {result && (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-semibold">Summary</h4>
-                  <p>{result.summary}</p>
-                </div>
-                {result.findings?.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold">Findings</h4>
-                    <ul className="list-disc pl-5">{result.findings.map((f, i) => <li key={i}>{f}</li>)}</ul>
-                  </div>
-                )}
-                {result.rewrite_sql && (
-                  <div>
-                    <h4 className="font-semibold">Rewrite SQL</h4>
-                    <pre className="bg-gray-100 border border-gray-300 rounded-xl p-3 whitespace-pre-wrap overflow-auto">{result.rewrite_sql}</pre>
-                  </div>
-                )}
-                {result.index_recommendations?.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold">Index Recommendations</h4>
-                    <ul className="list-disc pl-5">{result.index_recommendations.map((f, i) => <li key={i}>{f}</li>)}</ul>
-                  </div>
-                )}
-                {result.risks?.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold">Risks</h4>
-                    <ul className="list-disc pl-5">{result.risks.map((f, i) => <li key={i}>{f}</li>)}</ul>
-                  </div>
-                )}
-                {result.test_steps?.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold">Test Steps</h4>
-                    <ol className="list-decimal pl-5">{result.test_steps.map((f, i) => <li key={i}>{f}</li>)}</ol>
-                  </div>
-                )}
-              </div>
-            )}
-          </Section>
-        </div>
+    return findings, rewrite_out, index_recs, risks
 
-        <footer className={`text-sm mt-8 border-t pt-4 flex justify-between items-center ${isDark ? "text-[#98a2b3] border-[#23304b]" : "text-[#475569] border-[#cbd5e1]"}`}>
-          <span>© {new Date().getFullYear()} NathSpire DBA Optimizer</span>
-          <button
-            type="button"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="px-3 py-1 rounded-lg border border-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 font-semibold"
-            title="Toggle Theme"
-          >
-            Display Mode
-          </button>
-        </footer>
-      </div>
-    </div>
-  );
-}
+# ---------- Health ----------
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+# ---------- Analyze ----------
+@app.post("/analyze", response_model=AnalyzeResponse)
+def analyze(req: AnalyzeRequest):
+    sql = req.sql_text or ""
+    try:
+        sql_fmt = sqlparse.format(sql, keyword_case="upper", reindent=True)
+    except Exception:
+        sql_fmt = sql
+
+    base_findings, base_rewrite, base_indexes, base_risks = static_rules(sql_fmt)
+
+    # If no API key, return static analysis only
+    if not OPENAI_API_KEY:
+        return AnalyzeResponse(
+            summary="Static analysis completed (OpenAI not configured).",
+            findings=base_findings or ["No obvious issues detected by static rules."],
+            rewrite_sql=base_rewrite,
+            index_recommendations=base_indexes,
+            risks=base_risks,
+            test_steps=[
+                "Capture current plan & metrics (duration, CPU, reads).",
+                "Apply one change at a time (index or rewrite).",
+                "Compare estimated vs actual plans; validate row estimates.",
+                "Benchmark on prod-like data; check regressions.",
+            ],
+        )
+
+    # With OpenAI: Chat Completions (JSON mode)
+    try:
+        import httpx
+        from openai import OpenAI
+
+        # httpx client that ignores any *_PROXY env vars
+        http_client = httpx.Client(trust_env=False, timeout=30.0)
+        client = OpenAI(api_key=OPENAI_API_KEY, http_client=http_client)
+
+        system_msg = (
+            f"You are a veteran {req.dbms} performance engineer. "
+            f"Return safe, actionable tuning advice. Use <YourTable> placeholders; never invent schema names."
+        )
+        plan = (req.plan_xml or "")[:20000]  # truncate to keep request bounded
+
+        # Build prompt (avoid triple-quoted f-strings)
+        user_msg = (
+            "SQL (formatted):\n"
+            "```\n"
+            f"{sql_fmt}\n"
+            "```\n\n"
+            "Context:\n"
+            f"{req.context or 'n/a'}\n\n"
+            "Execution plan XML (optional, truncated):\n"
+            f"{plan if plan else 'n/a'}\n"
+        )
+
+        json_instructions = (
+            "Return a JSON object with keys: "
+            "summary (string), findings (array of strings), rewrite_sql (string), "
+            "index_recommendations (array of strings), risks (array of strings), "
+            "test_steps (array of strings). "
+            "If no safe optimization exists, set rewrite_sql to an empty string. "
+            "Prefer sargable range predicates over functions on columns. No extra keys or text."
+        )
+
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0.2,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+                {"role": "user", "content": json_instructions},
+            ],
+        )
+
+        llm = json.loads(resp.choices[0].message.content)
+
+        # Merge + dedupe
+        def dedupe(seq):
+            seen, out = set(), []
+            for s in seq or []:
+                if s not in seen:
+                    seen.add(s); out.append(s)
+            return out
+
+        # Guardrail: hide rewrite if it just mirrors the input
+        def _norm(s: str) -> str:
+            return re.sub(r"\s+", " ", (s or "")).strip().lower()
+
+        rewrite = llm.get("rewrite_sql") or base_rewrite
+        if rewrite and _norm(rewrite) == _norm(sql_fmt):
+            rewrite = base_rewrite  # fall back to static rewrite/comments if any
+
+        findings = dedupe((base_findings or []) + (llm.get("findings") or []))
+        indexes  = dedupe((base_indexes  or []) + (llm.get("index_recommendations") or []))
+        risks    = dedupe((base_risks    or []) + (llm.get("risks") or []))
+        summary  = llm.get("summary") or "Analysis completed."
+        steps    = llm.get("test_steps") or [
+            "Capture current plan & metrics (duration, CPU, reads).",
+            "Apply one change at a time (index or rewrite).",
+            "Compare estimated vs actual plans; validate row estimates.",
+            "Benchmark on prod-like data; check regressions.",
+        ]
+
+        return AnalyzeResponse(
+            summary=summary,
+            findings=findings or ["No obvious issues found."],
+            rewrite_sql=rewrite,
+            index_recommendations=indexes,
+            risks=risks,
+            test_steps=steps,
+        )
+
+    except Exception as e:
+        base_findings.append(f"AI enhancer unavailable: {e}")
+        return AnalyzeResponse(
+            summary="Static analysis completed (LLM call failed).",
+            findings=base_findings,
+            rewrite_sql=base_rewrite,
+            index_recommendations=base_indexes,
+            risks=base_risks,
+            test_steps=[
+                "Capture current plan & metrics (duration, CPU, reads).",
+                "Apply one change at a time (index or rewrite).",
+                "Compare estimated vs actual plans; validate row estimates.",
+                "Benchmark on prod-like data; check regressions.",
+            ],
+        )
