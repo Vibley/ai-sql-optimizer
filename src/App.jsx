@@ -187,7 +187,7 @@ export default function App() {
                   {loading ? "Analyzing…" : "Analyze"}
                 </button>
                <span className={`text-sm ${noteText}`}>
-  {error || "Anonymize identifiers; avoid PII."}
+  {error || "Mining insights from your query…"}
 </span>
                 
               </div>
