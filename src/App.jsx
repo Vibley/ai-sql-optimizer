@@ -134,7 +134,7 @@ export default function App() {
           {/* Left: brand */}
           <div className="flex items-center gap-3 font-extrabold">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 grid place-items-center text-white">NS</div>
-            <span>NathSpire DBA Optimizer — AI SQL Analyzer</span>
+            <span>SQL Database Query Optimizer — AI SQL Analyzer</span>
           </div>
 
           {/* Right: CTA */}
