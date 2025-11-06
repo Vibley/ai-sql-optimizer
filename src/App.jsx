@@ -114,7 +114,7 @@ export default function App() {
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 grid place-items-center text-white">
               NS
             </div>
-            <span>DBA Optimizer — AI SQL Analyzer</span>
+            <span>Database Query Optimizer —AI SQL Analyzer</span>
           </div>
 
           {/* Right: CTA */}
