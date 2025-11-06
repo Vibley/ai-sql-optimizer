@@ -245,7 +245,7 @@ export default function App() {
         </div>
 
         <footer className={`text-sm mt-8 border-t pt-4 flex justify-between items-center ${isDark ? "text-[#98a2b3] border-[#23304b]" : "text-[#475569] border-[#cbd5e1]"}`}>
-          <span>© {new Date().getFullYear()} Vibley DB Optimizer</span>
+          <span>© {new Date().getFullYear()} SQL Server Database Code Optimizer</span>
           <button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
