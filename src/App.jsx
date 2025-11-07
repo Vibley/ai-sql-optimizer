@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { Database } from "lucide-react";
+import { motion } from "framer-motion";
 
-// Absolute backend URLs (no relative paths)
-const API_URL    = "https://i-sql-optimizer-backend.onrender.com/analyze";
+const API_URL = "https://i-sql-optimizer-backend.onrender.com/analyze";
 const HEALTH_URL = "https://i-sql-optimizer-backend.onrender.com/health";
 
 export default function App() {
@@ -12,249 +13,113 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
-
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ name: "", email: "", message: "" });
-  const [formStatus, setFormStatus] = useState("");
-
   const [theme, setTheme] = useState("light");
   const isDark = theme === "dark";
 
-  const [apiOk, setApiOk] = useState(null);
-
-  // Health check once on mount
   useEffect(() => {
-    fetch(HEALTH_URL)
-      .then(r => setApiOk(r.ok))
-      .catch(() => setApiOk(false));
+    fetch(HEALTH_URL).catch(() => {});
   }, []);
 
-  async function analyze() {
+  const analyze = async () => {
     setLoading(true);
     setError("");
     setResult(null);
-
-    const payload = {
-      dbms,
-      sql_text: sql,
-      plan_xml: plan || null,
-      context: ctx || null,
-      version: "2022",
-    };
-
-    // Abort after 25s so UI never spins forever
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 25000);
-
     try {
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
+        body: JSON.stringify({ dbms, sql_text: sql, plan_xml: plan, context: ctx }),
       });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`${res.status} ${res.statusText}${text ? " — " + text.slice(0,200) : ""}`);
-      }
-
       const data = await res.json();
       setResult(data);
-    } catch (e) {
-      const msg = e.name === "AbortError"
-        ? "Request timed out (25s). Backend might be waking up. Try again."
-        : `API call failed: ${e.message}`;
-      setError(msg);
-    } finally {
-      clearTimeout(t);
-      setLoading(false);
+    } catch (err) {
+      setError("Backend not reachable or invalid response");
     }
-  }
+    setLoading(false);
+  };
 
-  async function sendForm(e) {
-    e.preventDefault();
-    setFormStatus("Sending...");
-    try {
-      await fetch("https://formspree.io/f/your-id", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          Name: formData.name,
-          Email: formData.email,
-          Message: formData.message,
-          DBMS: dbms,
-          SQL: sql,
-          Plan: plan,
-          Context: ctx,
-        }),
-      });
-      setFormStatus("Message sent successfully!");
-      setFormData({ name: "", email: "", message: "" });
-    } catch {
-      setFormStatus("Error sending message. Try again.");
-    }
-  }
-
-  function Section({ title, children }) {
-    const wrap = isDark
-      ? "bg-[#0f172a] border-[#23304b] text-[#f1f5f9]"
-      : "bg-[#f8fafc] border-[#cbd5e1] text-[#0f172a]";
-    return (
-      <div className={`${wrap} border rounded-2xl p-5`}>
-        <h3 className={isDark ? "text-lg font-semibold mb-2 text-[#f1f5f9]" : "text-lg font-semibold mb-2 text-[#0f172a]"}>
-          {title}
-        </h3>
-        {children}
-      </div>
-    );
-  }
-
-  const subtleText = isDark ? "text-gray-300" : "text-gray-600";
-  const noteText   = isDark ? "text-gray-400" : "text-gray-500";
+  const subtleText = isDark ? "text-slate-200" : "text-gray-700";
+  const sectionBg = isDark ? "bg-[#111827] border border-[#475569]" : "bg-white border border-gray-300";
   const inputCls = isDark
-    ? "bg-[#1e293b] border border-[#334155] text-[#f8fafc] rounded-xl p-3 placeholder-gray-400"
-    : "bg-gray-100 border border-gray-300 text-[#0f172a] rounded-xl p-3 placeholder-gray-500";
-  const selectCls = isDark
-    ? "bg-[#1e293b] border border-[#334155] text-[#f8fafc] rounded-xl p-2"
-    : "bg-gray-100 border border-gray-300 text-[#0f172a] rounded-xl p-2";
-  const codeBlock = isDark
-    ? "bg-[#111827] border border-[#1f2937] text-[#f9fafb]"
-    : "bg-gray-100 border border-gray-300 text-[#0f172a]";
+    ? "bg-[#1e293b] border border-[#475569] text-slate-100 rounded-xl p-3 placeholder-slate-400"
+    : "bg-gray-100 border border-gray-300 text-gray-900 rounded-xl p-3 placeholder-gray-500";
 
   return (
-    <div className={isDark ? "min-h-screen bg-[#0b1220] text-[#f1f5f9]" : "min-h-screen bg-[#e2e8f0] text-[#0f172a]"}>
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <header className={`sticky top-0 -mx-4 px-4 py-3 mb-6 backdrop-blur z-10 flex items-center justify-between ${isDark ? "bg-[#0b1220]/80 border-b border-[#23304b]" : "bg-[#f1f5f9]/90 border-b border-[#cbd5e1]"}`}>
-          {/* Left: brand */}
-          <div className="flex items-center gap-3 font-extrabold">
-            <span className="text-2xl bg-gradient-to-br from-indigo-500 to-emerald-400 bg-clip-text text-transparent">SQL Database Query Optimizer</span>
-            <span className={isDark ? "text-gray-400" : "text-gray-600"}>— AI SQL Analyzer</span>
+    <div className={isDark ? "min-h-screen bg-[#0f172a] text-slate-100" : "min-h-screen bg-[#f8fafc] text-gray-900"}>
+      <div className="max-w-6xl mx-auto p-8">
+        <header className={`flex items-center justify-between mb-8 border-b pb-4 ${isDark ? 'border-[#475569]' : 'border-gray-300'}`}>
+          <div className="flex items-center gap-3">
+            <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 6 }}>
+              <Database className="w-10 h-10 text-indigo-400" />
+            </motion.div>
+            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent">
+              SQL Optimizer App
+            </h1>
           </div>
-
-          {/* Right: CTA */}
           <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-indigo-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className={`border rounded-xl px-3 py-1 font-semibold ${isDark ? 'border-slate-400 text-slate-100 hover:bg-slate-700' : 'border-gray-400 hover:bg-gray-200'}`}
           >
-            Get Pro Review
+            {isDark ? "Light Mode" : "Dark Mode"}
           </button>
         </header>
 
-        {showForm && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className={(isDark ? "bg-[#0f172a] text-[#e6e9ef] border border-[#23304b]" : "bg-white text-[#0f172a] border border-[#cbd5e1]") + " rounded-2xl p-6 w-full max-w-md relative shadow-lg"}>
-              <button onClick={() => setShowForm(false)} className="absolute top-3 right-3 text-[#64748b]">✕</button>
-              <h3 className="text-xl font-semibold mb-4">Request a Pro Review</h3>
-              <form onSubmit={sendForm} className="grid gap-3">
-                <input type="text" placeholder="Your Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className={inputCls} required />
-                <input type="email" placeholder="Your Email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className={inputCls} required />
-                <textarea placeholder="Message or additional details" value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })} className={inputCls} rows={4}></textarea>
-                <button type="submit" className="bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-xl p-3 font-semibold text-white">Send</button>
-                <p className={`text-sm text-center ${noteText}`}>{formStatus}</p>
-              </form>
-            </div>
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className={`${sectionBg} rounded-2xl p-5 shadow-lg`}>
+            <h2 className="font-bold text-lg mb-3 flex items-center gap-2">
+              <Database className="w-5 h-5 text-indigo-400" /> Input
+            </h2>
+
+            <label className="text-sm">DBMS</label>
+            <select value={dbms} onChange={(e) => setDbms(e.target.value)} className={`${inputCls} w-full mb-3`}>
+              <option value="sqlserver">SQL Server</option>
+              <option value="postgres">PostgreSQL</option>
+              <option value="mysql">MySQL</option>
+            </select>
+
+            <label className="text-sm">SQL Query</label>
+            <textarea value={sql} onChange={(e) => setSql(e.target.value)} rows={8} placeholder="Enter SQL query" className={`${inputCls} w-full mb-3`} />
+
+            <label className="text-sm">Execution Plan (optional)</label>
+            <textarea value={plan} onChange={(e) => setPlan(e.target.value)} rows={4} placeholder="Paste execution plan XML" className={`${inputCls} w-full mb-3`} />
+
+            <label className="text-sm">Context (optional)</label>
+            <textarea value={ctx} onChange={(e) => setCtx(e.target.value)} rows={3} placeholder="Indexes, rowcounts, etc." className={`${inputCls} w-full mb-3`} />
+
+            <button
+              onClick={analyze}
+              disabled={loading}
+              className="bg-gradient-to-b from-indigo-500 to-indigo-600 text-white px-4 py-2 rounded-xl font-semibold hover:opacity-90"
+            >
+              {loading ? "Analyzing..." : "Analyze"}
+            </button>
+            {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
           </div>
-        )}
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <Section title="Input">
-            <div className="grid gap-3">
-              <label className={`text-sm ${subtleText}`}>DBMS</label>
-              <select value={dbms} onChange={(e) => setDbms(e.target.value)} className={selectCls}>
-                <option value="sqlserver">SQL Server</option>
-                <option value="postgres">PostgreSQL</option>
-                <option value="mysql">MySQL</option>
-              </select>
-
-              <label className={`text-sm mt-2 ${subtleText}`}>SQL Text</label>
-              <textarea value={sql} onChange={(e) => setSql(e.target.value)} rows={10} placeholder="Paste SQL here (anonymize identifiers if possible)" className={inputCls} />
-
-              <label className={`text-sm mt-2 ${subtleText}`}>Execution Plan XML (optional)</label>
-              <textarea value={plan} onChange={(e) => setPlan(e.target.value)} rows={6} placeholder="Paste estimated/actual plan XML" className={inputCls} />
-
-              <label className={`text-sm mt-2 ${subtleText}`}>Context</label>
-              <textarea value={ctx} onChange={(e) => setCtx(e.target.value)} rows={4} placeholder="Rowcounts, known indexes, parameters, symptoms" className={inputCls} />
-
-              <div className="flex items-center gap-3 mt-2">
-                <button
-                  type="button"
-                  onClick={analyze}
-                  disabled={loading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold disabled:opacity-60"
-                >
-                  {loading ? "Analyzing SQL logic…" : "Analyze"}
-                </button>
-               <span className={`text-sm ${noteText}`}>
-  {error || "Deep dive into your query"}
-</span>
-                
-              </div>
-            </div>
-          </Section>
-
-          <Section title="Results">
-            {!result && <p className={noteText}>No analysis yet. Paste a query and click Analyze.</p>}
+          <div className={`${sectionBg} rounded-2xl p-5 shadow-lg`}>
+            <h2 className="font-bold text-lg mb-3 flex items-center gap-2">
+              <Database className="w-5 h-5 text-emerald-400" /> Results
+            </h2>
+            {!result && <p className={subtleText}>No analysis yet. Paste a query and click Analyze.</p>}
             {result && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
-                  <h4 className={isDark ? "font-semibold text-[#f1f5f9]" : "font-semibold text-[#0f172a]"}>Summary</h4>
+                  <h4 className="font-semibold text-indigo-300">Summary</h4>
                   <p className={subtleText}>{result.summary}</p>
                 </div>
-                {result.findings?.length > 0 && (
-                  <div>
-                    <h4 className={isDark ? "font-semibold text-[#f1f5f9]" : "font-semibold text-[#0f172a]"}>Findings</h4>
-                    <ul className="list-disc pl-5">
-                      {result.findings.map((f, i) => <li key={i} className={subtleText}>{f}</li>)}
-                    </ul>
-                  </div>
-                )}
                 {result.rewrite_sql && (
                   <div>
-                    <h4 className={isDark ? "font-semibold text-[#f1f5f9]" : "font-semibold text-[#0f172a]"}>Rewrite SQL</h4>
-                    <pre className={`${codeBlock} rounded-xl p-3 whitespace-pre-wrap overflow-auto`}>{result.rewrite_sql}</pre>
-                  </div>
-                )}
-                {result.index_recommendations?.length > 0 && (
-                  <div>
-                    <h4 className={isDark ? "font-semibold text-[#f1f5f9]" : "font-semibold text-[#0f172a]"}>Index Recommendations</h4>
-                    <ul className="list-disc pl-5">
-                      {result.index_recommendations.map((f, i) => <li key={i} className={subtleText}>{f}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {result.risks?.length > 0 && (
-                  <div>
-                    <h4 className={isDark ? "font-semibold text-[#f1f5f9]" : "font-semibold text-[#0f172a]"}>Risks</h4>
-                    <ul className="list-disc pl-5">
-                      {result.risks.map((f, i) => <li key={i} className={subtleText}>{f}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {result.test_steps?.length > 0 && (
-                  <div>
-                    <h4 className={isDark ? "font-semibold text-[#f1f5f9]" : "font-semibold text-[#0f172a]"}>Test Steps</h4>
-                    <ol className="list-decimal pl-5">
-                      {result.test_steps.map((f, i) => <li key={i} className={subtleText}>{f}</li>)}
-                    </ol>
+                    <h4 className="font-semibold text-indigo-300">Rewritten SQL</h4>
+                    <pre className={`${inputCls} p-3 whitespace-pre-wrap text-slate-100 bg-[#1e293b]`}>{result.rewrite_sql}</pre>
                   </div>
                 )}
               </div>
             )}
-          </Section>
+          </div>
         </div>
 
-        <footer className={`text-sm mt-8 border-t pt-4 flex justify-between items-center ${isDark ? "text-[#98a2b3] border-[#23304b]" : "text-[#475569] border-[#cbd5e1]"}`}>
-          <span>© {new Date().getFullYear()} SQL Server Database Code Optimizer</span>
-          <button
-            type="button"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="px-3 py-1 rounded-lg border border-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 font-semibold"
-            title="Toggle Theme"
-          >
-            Display Mode
-          </button>
+        <footer className={`mt-8 text-sm text-center border-t pt-4 ${isDark ? 'text-slate-400 border-[#475569]' : 'text-gray-500 border-gray-300'}`}>
+          <p>© {new Date().getFullYear()} SQL Optimizer — Powered by AI</p>
         </footer>
       </div>
     </div>
