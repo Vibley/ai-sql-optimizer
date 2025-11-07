@@ -1,4 +1,5 @@
 name: Build and Deploy Vite to Pages
+
 on:
   push:
     branches: [ main ]
@@ -19,19 +20,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Configure GitHub Pages (required)
+      # 🔧 Configure (and auto-enable) GitHub Pages
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true   # <— important when visibility was toggled
 
-      # Set up Node (NO cache -> no lock-file warning)
+      # Node + install + build
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      # Install & build
-      - run: npm install
+          cache: npm
+      - run: npm ci            # uses package-lock.json (faster & reliable)
       - run: npm run build
 
-      # Upload the built site in ./dist
+      # Upload the built site (Vite outputs to ./dist by default)
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
