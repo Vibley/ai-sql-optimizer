@@ -20,30 +20,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 🔧 Configure (and auto-enable) GitHub Pages
       - uses: actions/configure-pages@v5
         with:
-          enablement: true   # auto-enables Pages if it was off
+          enablement: true
 
-      # 🧰 Set up Node.js and build
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
 
-      # ✅ FIXED: use npm install instead of npm ci (no lock file required)
       - name: Install dependencies
         run: npm install
 
-      # 🏗️ Build your Vite project
       - name: Build
         run: npm run build
 
-      # 📦 Upload the built site (Vite outputs to ./dist by default)
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: ./dist  # ✅ Must be dist, not build or public
 
   deploy:
     needs: build
