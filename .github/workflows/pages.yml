@@ -23,18 +23,25 @@ jobs:
       # 🔧 Configure (and auto-enable) GitHub Pages
       - uses: actions/configure-pages@v5
         with:
-          enablement: true   # <— important when visibility was toggled
+          enablement: true   # auto-enables Pages if it was off
 
-      # Node + install + build
+      # 🧰 Set up Node.js and build
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
-      - run: npm ci            # uses package-lock.json (faster & reliable)
-      - run: npm run build
 
-      # Upload the built site (Vite outputs to ./dist by default)
-      - uses: actions/upload-pages-artifact@v3
+      # ✅ FIXED: use npm install instead of npm ci (no lock file required)
+      - name: Install dependencies
+        run: npm install
+
+      # 🏗️ Build your Vite project
+      - name: Build
+        run: npm run build
+
+      # 📦 Upload the built site (Vite outputs to ./dist by default)
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
 
