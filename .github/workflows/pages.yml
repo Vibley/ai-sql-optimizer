@@ -29,16 +29,19 @@ jobs:
           node-version: '20'
           cache: npm
 
+      # ✅ FIXED: no lock file required
       - name: Install dependencies
         run: npm install
 
+      # 🏗️ Build your Vite app
       - name: Build
         run: npm run build
 
+      # 📦 Upload built files to Pages
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist  # ✅ Must be dist, not build or public
+          path: ./dist
 
   deploy:
     needs: build
