@@ -24,20 +24,17 @@ jobs:
         with:
           enablement: true
 
+      # 🧰 Set up Node.js – ❌ removed cache line
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: npm
+          node-version: 20
 
-      # ✅ FIXED: no lock file required
       - name: Install dependencies
         run: npm install
 
-      # 🏗️ Build your Vite app
       - name: Build
         run: npm run build
 
-      # 📦 Upload built files to Pages
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
