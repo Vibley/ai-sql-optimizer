@@ -115,7 +115,7 @@ export default function App() {
               disabled={loading}
               className="bg-gradient-to-b from-indigo-500 to-indigo-600 text-white px-4 py-2 rounded-xl font-semibold hover:opacity-90"
             >
-              {loading ? "Deep diving into your query..." : "Analyze"}
+              {loading ? "Analysis in progress. Please wait…" : "Analyze"}
             </button>
             {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
           </div>
