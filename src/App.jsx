@@ -1,9 +1,9 @@
 {result && (
-  <div className="space-y-5">
+  <div className="space-y-6">
     {/* Summary */}
     <section>
       <h4 className="font-semibold text-indigo-300 mb-1">Summary</h4>
-      <p className={subtleText}>{result.summary}</p>
+      <p className={subtleText}>{result.summary || "No summary provided."}</p>
     </section>
 
     {/* Findings */}
@@ -22,7 +22,11 @@
     {result.rewrite_sql && (
       <section>
         <h4 className="font-semibold text-indigo-300 mb-1">Rewritten SQL</h4>
-        <pre className={`${inputCls} p-3 whitespace-pre-wrap text-slate-100 dark:text-slate-100 dark:bg-[#1e293b]`}>{result.rewrite_sql}</pre>
+        <pre
+          className={`${isDark ? "bg-[#1e293b] text-slate-100" : "bg-gray-100 text-gray-800"} border border-slate-500 rounded-lg p-3 whitespace-pre-wrap overflow-x-auto`}
+        >
+          {result.rewrite_sql}
+        </pre>
       </section>
     )}
 
@@ -42,7 +46,11 @@
     {result.index_script && (
       <section>
         <h4 className="font-semibold text-indigo-300 mb-1">Index Script</h4>
-        <pre className={`${inputCls} p-3 whitespace-pre-wrap text-slate-100 dark:text-slate-100 dark:bg-[#1e293b]`}>{result.index_script}</pre>
+        <pre
+          className={`${isDark ? "bg-[#1e293b] text-slate-100" : "bg-gray-100 text-gray-800"} border border-slate-500 rounded-lg p-3 whitespace-pre-wrap overflow-x-auto`}
+        >
+          {result.index_script}
+        </pre>
       </section>
     )}
 
@@ -58,7 +66,7 @@
       </section>
     )}
 
-    {/* Test Steps */}
+    {/* Validation Steps */}
     {result.test_steps?.length > 0 && (
       <section>
         <h4 className="font-semibold text-indigo-300 mb-1">Validation Steps</h4>
