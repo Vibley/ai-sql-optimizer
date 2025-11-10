@@ -110,19 +110,14 @@ export default function App() {
     );
   }
 
-  // Utility to pick readable text classes per theme
   const subtleText = isDark ? "text-gray-300" : "text-gray-600";
   const noteText   = isDark ? "text-gray-400" : "text-gray-500";
-
-  // Input class generator for light/dark
   const inputCls = isDark
     ? "bg-[#1e293b] border border-[#334155] text-[#f8fafc] rounded-xl p-3 placeholder-gray-400"
     : "bg-gray-100 border border-gray-300 text-[#0f172a] rounded-xl p-3 placeholder-gray-500";
-
   const selectCls = isDark
     ? "bg-[#1e293b] border border-[#334155] text-[#f8fafc] rounded-xl p-2"
     : "bg-gray-100 border border-gray-300 text-[#0f172a] rounded-xl p-2";
-
   const codeBlock = isDark
     ? "bg-[#111827] border border-[#1f2937] text-[#f9fafb]"
     : "bg-gray-100 border border-gray-300 text-[#0f172a]";
@@ -133,8 +128,8 @@ export default function App() {
         <header className={`sticky top-0 -mx-4 px-4 py-3 mb-6 backdrop-blur z-10 flex items-center justify-between ${isDark ? "bg-[#0b1220]/80 border-b border-[#23304b]" : "bg-[#f1f5f9]/90 border-b border-[#cbd5e1]"}`}>
           {/* Left: brand */}
           <div className="flex items-center gap-3 font-extrabold">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 grid place-items-center text-white">NS</div>
-            <span>NathSpire DBA Optimizer — AI SQL Analyzer</span>
+            <span className="text-2xl bg-gradient-to-br from-indigo-500 to-emerald-400 bg-clip-text text-transparent">SQL Database Query Optimizer</span>
+            <span className={isDark ? "text-gray-400" : "text-gray-600"}>— AI SQL Analyzer</span>
           </div>
 
           {/* Right: CTA */}
@@ -250,7 +245,7 @@ export default function App() {
         </div>
 
         <footer className={`text-sm mt-8 border-t pt-4 flex justify-between items-center ${isDark ? "text-[#98a2b3] border-[#23304b]" : "text-[#475569] border-[#cbd5e1]"}`}>
-          <span>© {new Date().getFullYear()} NathSpire DBA Optimizer</span>
+          <span>© {new Date().getFullYear()} SQL Server Database Code Optimizer</span>
           <button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
