@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
-// Absolute backend URLs
-const API_URL    = "https://i-sql-optimizer-backend.onrender.com/analyze";
-const HEALTH_URL = "https://i-sql-optimizer-backend.onrender.com/health";
+// Absolute backend URL (no relative paths)
+const API_URL = "https://i-sql-optimizer-backend.onrender.com/analyze";
 
 export default function App() {
   const [dbms, setDbms] = useState("sqlserver");
@@ -10,8 +9,8 @@ export default function App() {
   const [plan, setPlan] = useState("");
   const [ctx, setCtx] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
-  const [result,  setResult]  = useState(null);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", email: "", message: "" });
@@ -20,59 +19,51 @@ export default function App() {
   const [theme, setTheme] = useState("light");
   const isDark = theme === "dark";
 
-  const [apiOk, setApiOk] = useState(null); // single source of truth
+  async function analyze() {
+    setLoading(true);
+    setError("");
+    setResult(null);
 
-  // One simple health check on mount
-  useEffect(() => {
-    fetch(HEALTH_URL)
-      .then(r => setApiOk(r.ok))
-      .catch(() => setApiOk(false));
-  }, []);
+    const payload = {
+      dbms,
+      sql_text: sql,
+      plan_xml: plan || null,
+      context: ctx || null,
+      version: "2022",
+    };
 
-async function analyze() {
-  setLoading(true);
-  setError("");
-  setResult(null);
+    // Abort after 25s so UI never spins forever
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 25000);
 
-  const payload = {
-    dbms,
-    sql_text: sql,
-    plan_xml: plan || null,
-    context: ctx || null,
-    version: "2022",
-  };
+    try {
+      console.log("POST", API_URL, payload);
 
-  // Abort after 25s so UI never spins forever
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 25000);
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
 
-  try {
-    console.log("POST", API_URL, payload);
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`${res.status} ${res.statusText}${text ? " — " + text.slice(0, 200) : ""}`);
+      }
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`${res.status} ${res.statusText}${text ? " — " + text.slice(0,200) : ""}`);
+      const data = await res.json();
+      setResult(data);
+    } catch (e) {
+      const msg =
+        e.name === "AbortError"
+          ? "Request timed out (25s). Backend might be waking up. Try again."
+          : `API call failed: ${e.message}`;
+      setError(msg);
+    } finally {
+      clearTimeout(t);
+      setLoading(false);
     }
-
-    const data = await res.json();
-    setResult(data);
-  } catch (e) {
-    const msg = e.name === "AbortError"
-      ? "Request timed out (25s). Backend might be waking up. Try again."
-      : `API call failed: ${e.message}`;
-    setError(msg);
-  } finally {
-    clearTimeout(t);
-    setLoading(false);
   }
-}
-
 
   async function sendForm(e) {
     e.preventDefault();
@@ -113,43 +104,69 @@ async function analyze() {
   return (
     <div className={isDark ? "min-h-screen bg-[#0b1220] text-[#e6e9ef]" : "min-h-screen bg-[#e2e8f0] text-[#0f172a]"}>
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <header className={`sticky top-0 -mx-4 px-4 py-3 mb-6 backdrop-blur z-10 flex items-center justify-between ${isDark ? "bg-[#0b1220]/80 border-b border-[#23304b]" : "bg-[#f1f5f9]/90 border-b border-[#cbd5e1]"}`}>
-          {/* Left side: brand + API badge */}
+        <header
+          className={`sticky top-0 -mx-4 px-4 py-3 mb-6 backdrop-blur z-10 flex items-center justify-between ${
+            isDark ? "bg-[#0b1220]/80 border-b border-[#23304b]" : "bg-[#f1f5f9]/90 border-b border-[#cbd5e1]"
+          }`}
+        >
+          {/* Left: brand */}
           <div className="flex items-center gap-3 font-extrabold">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 grid place-items-center text-white">NS</div>
-            <span>NathSpire DBA Optimizer — AI SQL Analyzer</span>
-            <span className={`text-xs ml-3 px-2 py-1 rounded-md border ${
-              apiOk===null ? "border-gray-300 text-gray-600" :
-              apiOk ? "border-green-300 text-green-700" : "border-rose-300 text-rose-700"
-            }`}>
-              {apiOk===null ? "Checking API…" : apiOk ? "API Connected" : "API Offline"}
-            </span>
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-emerald-400 grid place-items-center text-white">
+              NS
+            </div>
+            <span>DBA Optimizer — AI SQL Analyzer</span>
           </div>
-          {/* Right side: CTA */}
-                 
-<button
-  type="button"              // <-- add this
-  onClick={analyze}          // <-- call analyze on click
-  disabled={loading}
-  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold disabled:opacity-60"
->
-  {loading ? "Analyzing…" : "Analyze"}
-   Get Pro Review
-</button>
-          
-          
+
+          {/* Right: CTA */}
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-indigo-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold"
+          >
+            Get Pro Review
+          </button>
         </header>
 
         {showForm && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className={(isDark ? "bg-[#0f172a] text-[#e6e9ef] border border-[#23304b]" : "bg-white text-[#0f172a] border border-[#cbd5e1]") + " rounded-2xl p-6 w-full max-w-md relative shadow-lg"}>
-              <button onClick={() => setShowForm(false)} className="absolute top-3 right-3 text-[#64748b]">✕</button>
+            <div
+              className={
+                (isDark
+                  ? "bg-[#0f172a] text-[#e6e9ef] border border-[#23304b]"
+                  : "bg-white text-[#0f172a] border border-[#cbd5e1]") + " rounded-2xl p-6 w-full max-w-md relative shadow-lg"
+              }
+            >
+              <button onClick={() => setShowForm(false)} className="absolute top-3 right-3 text-[#64748b]">
+                ✕
+              </button>
               <h3 className="text-xl font-semibold mb-4">Request a Pro Review</h3>
               <form onSubmit={sendForm} className="grid gap-3">
-                <input type="text" placeholder="Your Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="bg-gray-100 border border-gray-300 rounded-xl p-3" required />
-                <input type="email" placeholder="Your Email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="bg-gray-100 border border-gray-300 rounded-xl p-3" required />
-                <textarea placeholder="Message or additional details" value={formData.message} onChange={e => setFormData({ ...formData, message: e.target.value })} className="bg-gray-100 border border-gray-300 rounded-xl p-3" rows={4}></textarea>
-                <button type="submit" className="bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-xl p-3 font-semibold text-white">Send</button>
+                <input
+                  type="text"
+                  placeholder="Your Name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="bg-gray-100 border border-gray-300 rounded-xl p-3"
+                  required
+                />
+                <input
+                  type="email"
+                  placeholder="Your Email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="bg-gray-100 border border-gray-300 rounded-xl p-3"
+                  required
+                />
+                <textarea
+                  placeholder="Message or additional details"
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  className="bg-gray-100 border border-gray-300 rounded-xl p-3"
+                  rows={4}
+                ></textarea>
+                <button type="submit" className="bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-xl p-3 font-semibold text-white">
+                  Send
+                </button>
                 <p className="text-sm text-center text-gray-500">{formStatus}</p>
               </form>
             </div>
@@ -167,19 +184,44 @@ async function analyze() {
               </select>
 
               <label className="text-sm mt-2">SQL Text</label>
-              <textarea value={sql} onChange={(e) => setSql(e.target.value)} rows={10} placeholder="Paste SQL here (anonymize identifiers if possible)" className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3" />
+              <textarea
+                value={sql}
+                onChange={(e) => setSql(e.target.value)}
+                rows={10}
+                placeholder="Paste SQL here (anonymize identifiers if possible)"
+                className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3"
+              />
 
               <label className="text-sm mt-2">Execution Plan XML (optional)</label>
-              <textarea value={plan} onChange={(e) => setPlan(e.target.value)} rows={6} placeholder="Paste estimated/actual plan XML" className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3" />
+              <textarea
+                value={plan}
+                onChange={(e) => setPlan(e.target.value)}
+                rows={6}
+                placeholder="Paste estimated/actual plan XML"
+                className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3"
+              />
 
               <label className="text-sm mt-2">Context</label>
-              <textarea value={ctx} onChange={(e) => setCtx(e.target.value)} rows={4} placeholder="Rowcounts, known indexes, parameters, symptoms" className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3" />
+              <textarea
+                value={ctx}
+                onChange={(e) => setCtx(e.target.value)}
+                rows={4}
+                placeholder="Rowcounts, known indexes, parameters, symptoms"
+                className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3"
+              />
 
               <div className="flex items-center gap-3 mt-2">
-                <button onClick={analyze} disabled={loading} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold disabled:opacity-60">
+                <button
+                  type="button"
+                  onClick={analyze}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white font-semibold disabled:opacity-60"
+                >
                   {loading ? "Analyzing…" : "Analyze"}
                 </button>
-                <span className="text-sm text-gray-500">{error ? error : "Anonymize identifiers; avoid PII."}</span>
+                <span className="text-sm text-gray-500">
+                  {loading ? "Contacting backend…" : error || "Anonymize identifiers; avoid PII."}
+                </span>
               </div>
             </div>
           </Section>
@@ -230,6 +272,7 @@ async function analyze() {
         <footer className={`text-sm mt-8 border-t pt-4 flex justify-between items-center ${isDark ? "text-[#98a2b3] border-[#23304b]" : "text-[#475569] border-[#cbd5e1]"}`}>
           <span>© {new Date().getFullYear()} NathSpire DBA Optimizer</span>
           <button
+            type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
             className="px-3 py-1 rounded-lg border border-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 font-semibold"
             title="Toggle Theme"
