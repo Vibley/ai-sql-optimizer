@@ -38,14 +38,15 @@ export default function App() {
     setLoading(false);
   };
 
-  const subtleText = isDark ? "text-slate-200" : "text-gray-800";
+  // 💡 Improved color contrast
+  const subtleText = isDark ? "text-gray-100" : "text-gray-800";
   const sectionBg = isDark ? "bg-[#111827] border border-[#475569]" : "bg-white border border-gray-300";
   const inputCls = isDark
-    ? "bg-[#1e293b] border border-[#475569] text-slate-100 rounded-xl p-3 placeholder-slate-400"
+    ? "bg-[#1e293b] border border-[#475569] text-white rounded-xl p-3 placeholder-gray-400"
     : "bg-gray-100 border border-gray-300 text-gray-900 rounded-xl p-3 placeholder-gray-500";
 
   return (
-    <div className={isDark ? "min-h-screen bg-[#0f172a] text-slate-100" : "min-h-screen bg-[#f8fafc] text-gray-900"}>
+    <div className={isDark ? "min-h-screen bg-[#0f172a] text-white" : "min-h-screen bg-[#f8fafc] text-gray-900"}>
       <div className="max-w-6xl mx-auto p-8">
         {/* Header */}
         <header className={`flex items-center justify-between mb-8 border-b pb-4 ${isDark ? "border-[#475569]" : "border-gray-300"}`}>
@@ -60,7 +61,7 @@ export default function App() {
           <button
             onClick={() => setTheme(isDark ? "light" : "dark")}
             className={`border rounded-xl px-3 py-1 font-semibold ${
-              isDark ? "border-slate-400 text-slate-100 hover:bg-slate-700" : "border-gray-400 hover:bg-gray-200"
+              isDark ? "border-gray-400 text-white hover:bg-slate-700" : "border-gray-400 hover:bg-gray-200"
             }`}
           >
             {isDark ? "Light Mode" : "Dark Mode"}
@@ -131,10 +132,10 @@ export default function App() {
               <div className="space-y-6">
                 {/* Summary */}
                 <section>
-                  <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                  <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
                     Summary
                   </h4>
-                  <p className={isDark ? "text-slate-100" : "text-gray-800"}>
+                  <p className={isDark ? "text-white" : "text-gray-800"}>
                     {result.summary || "No summary provided."}
                   </p>
                 </section>
@@ -142,12 +143,12 @@ export default function App() {
                 {/* Findings */}
                 {result.findings?.length > 0 && (
                   <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
                       Findings
                     </h4>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       {result.findings.map((f, i) => (
-                        <li key={i} className={isDark ? "text-slate-100" : "text-gray-800"}>
+                        <li key={i} className={isDark ? "text-white" : "text-gray-800"}>
                           {f}
                         </li>
                       ))}
@@ -158,15 +159,15 @@ export default function App() {
                 {/* Rewritten SQL */}
                 {result.rewrite_sql && (
                   <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
                       Rewritten SQL
                     </h4>
                     <pre
                       className={`${
                         isDark
-                          ? "bg-[#0f172a] text-slate-100"
+                          ? "bg-[#0f172a] text-white"
                           : "bg-gray-100 text-gray-800"
-                      } border border-slate-500 rounded-lg p-3 whitespace-pre-wrap overflow-x-auto`}
+                      } border border-slate-600 rounded-lg p-3 whitespace-pre-wrap overflow-x-auto`}
                     >
                       {result.rewrite_sql}
                     </pre>
@@ -176,12 +177,12 @@ export default function App() {
                 {/* Index Recommendations */}
                 {result.index_recommendations?.length > 0 && (
                   <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
                       Index Recommendations
                     </h4>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       {result.index_recommendations.map((ix, i) => (
-                        <li key={i} className={isDark ? "text-slate-100" : "text-gray-800"}>
+                        <li key={i} className={isDark ? "text-white" : "text-gray-800"}>
                           {ix}
                         </li>
                       ))}
@@ -189,33 +190,15 @@ export default function App() {
                   </section>
                 )}
 
-                {/* Index Script */}
-                {result.index_script && (
-                  <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
-                      Index Script
-                    </h4>
-                    <pre
-                      className={`${
-                        isDark
-                          ? "bg-[#0f172a] text-slate-100"
-                          : "bg-gray-100 text-gray-800"
-                      } border border-slate-500 rounded-lg p-3 whitespace-pre-wrap overflow-x-auto`}
-                    >
-                      {result.index_script}
-                    </pre>
-                  </section>
-                )}
-
                 {/* Risks */}
                 {result.risks?.length > 0 && (
                   <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
                       Potential Risks
                     </h4>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       {result.risks.map((r, i) => (
-                        <li key={i} className={isDark ? "text-slate-100" : "text-gray-800"}>
+                        <li key={i} className={isDark ? "text-white" : "text-gray-800"}>
                           {r}
                         </li>
                       ))}
@@ -226,12 +209,12 @@ export default function App() {
                 {/* Validation Steps */}
                 {result.test_steps?.length > 0 && (
                   <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
                       Validation Steps
                     </h4>
                     <ol className="list-decimal pl-5 space-y-1 text-sm">
                       {result.test_steps.map((s, i) => (
-                        <li key={i} className={isDark ? "text-slate-100" : "text-gray-800"}>
+                        <li key={i} className={isDark ? "text-white" : "text-gray-800"}>
                           {s}
                         </li>
                       ))}
@@ -246,7 +229,7 @@ export default function App() {
         {/* Footer */}
         <footer
           className={`mt-8 text-sm text-center border-t pt-4 ${
-            isDark ? "text-slate-400 border-[#475569]" : "text-gray-500 border-gray-300"
+            isDark ? "text-gray-400 border-[#475569]" : "text-gray-500 border-gray-300"
           }`}
         >
           <p>© {new Date().getFullYear()} SQL Optimizer — Powered by AI</p>
