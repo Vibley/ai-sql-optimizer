@@ -87,7 +87,7 @@ export default function App() {
               value={sql}
               onChange={(e) => setSql(e.target.value)}
               rows={8}
-              placeholder="Enter SQL query"
+              placeholder="Paste your SQL query for optimization"
               className={`${inputCls} w-full mb-3`}
             />
 
@@ -114,7 +114,7 @@ export default function App() {
               disabled={loading}
               className="bg-gradient-to-b from-indigo-500 to-indigo-600 text-white px-4 py-2 rounded-xl font-semibold hover:opacity-90"
             >
-              {loading ? "Analyzing..." : "Analyze"}
+              {loading ? "Deep diving into your query..." : "Analyze"}
             </button>
             {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
           </div>
@@ -131,17 +131,25 @@ export default function App() {
               <div className="space-y-6">
                 {/* Summary */}
                 <section>
-                  <h4 className="font-semibold text-indigo-300 mb-1">Summary</h4>
-                  <p className={subtleText}>{result.summary || "No summary provided."}</p>
+                  <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                    Summary
+                  </h4>
+                  <p className={isDark ? "text-slate-100" : "text-gray-800"}>
+                    {result.summary || "No summary provided."}
+                  </p>
                 </section>
 
                 {/* Findings */}
                 {result.findings?.length > 0 && (
                   <section>
-                    <h4 className="font-semibold text-indigo-300 mb-1">Findings</h4>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                      Findings
+                    </h4>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       {result.findings.map((f, i) => (
-                        <li key={i} className="text-slate-200">{f}</li>
+                        <li key={i} className={isDark ? "text-slate-100" : "text-gray-800"}>
+                          {f}
+                        </li>
                       ))}
                     </ul>
                   </section>
@@ -150,7 +158,9 @@ export default function App() {
                 {/* Rewritten SQL */}
                 {result.rewrite_sql && (
                   <section>
-                    <h4 className="font-semibold text-indigo-300 mb-1">Rewritten SQL</h4>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                      Rewritten SQL
+                    </h4>
                     <pre
                       className={`${
                         isDark
@@ -166,10 +176,14 @@ export default function App() {
                 {/* Index Recommendations */}
                 {result.index_recommendations?.length > 0 && (
                   <section>
-                    <h4 className="font-semibold text-indigo-300 mb-1">Index Recommendations</h4>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                      Index Recommendations
+                    </h4>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       {result.index_recommendations.map((ix, i) => (
-                        <li key={i} className="text-slate-200">{ix}</li>
+                        <li key={i} className={isDark ? "text-slate-100" : "text-gray-800"}>
+                          {ix}
+                        </li>
                       ))}
                     </ul>
                   </section>
@@ -178,7 +192,9 @@ export default function App() {
                 {/* Index Script */}
                 {result.index_script && (
                   <section>
-                    <h4 className="font-semibold text-indigo-300 mb-1">Index Script</h4>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                      Index Script
+                    </h4>
                     <pre
                       className={`${
                         isDark
@@ -194,10 +210,14 @@ export default function App() {
                 {/* Risks */}
                 {result.risks?.length > 0 && (
                   <section>
-                    <h4 className="font-semibold text-indigo-300 mb-1">Potential Risks</h4>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                      Potential Risks
+                    </h4>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       {result.risks.map((r, i) => (
-                        <li key={i} className="text-slate-200">{r}</li>
+                        <li key={i} className={isDark ? "text-slate-100" : "text-gray-800"}>
+                          {r}
+                        </li>
                       ))}
                     </ul>
                   </section>
@@ -206,10 +226,14 @@ export default function App() {
                 {/* Validation Steps */}
                 {result.test_steps?.length > 0 && (
                   <section>
-                    <h4 className="font-semibold text-indigo-300 mb-1">Validation Steps</h4>
+                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-200" : "text-indigo-600"}`}>
+                      Validation Steps
+                    </h4>
                     <ol className="list-decimal pl-5 space-y-1 text-sm">
                       {result.test_steps.map((s, i) => (
-                        <li key={i} className="text-slate-200">{s}</li>
+                        <li key={i} className={isDark ? "text-slate-100" : "text-gray-800"}>
+                          {s}
+                        </li>
                       ))}
                     </ol>
                   </section>
