@@ -7,6 +7,7 @@ const HEALTH_URL = "https://i-sql-optimizer-backend.onrender.com/health";
 
 export default function App() {
   const [dbms, setDbms] = useState("sqlserver");
+  const [version, setVersion] = useState(""); // ✅ Added MSSQL version
   const [sql, setSql] = useState("");
   const [plan, setPlan] = useState("");
   const [ctx, setCtx] = useState("");
@@ -28,7 +29,13 @@ export default function App() {
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dbms, sql_text: sql, plan_xml: plan, context: ctx }),
+        body: JSON.stringify({
+          dbms,
+          version, // ✅ Include version in request
+          sql_text: sql,
+          plan_xml: plan,
+          context: ctx,
+        }),
       });
       const data = await res.json();
       setResult(data);
@@ -38,20 +45,35 @@ export default function App() {
     setLoading(false);
   };
 
-  // 💡 Improved color contrast
+  // Improved contrast for dark mode
   const subtleText = isDark ? "text-gray-100" : "text-gray-800";
-  const sectionBg = isDark ? "bg-[#111827] border border-[#475569]" : "bg-white border border-gray-300";
+  const sectionBg = isDark
+    ? "bg-[#111827] border border-[#475569]"
+    : "bg-white border border-gray-300";
   const inputCls = isDark
     ? "bg-[#1e293b] border border-[#475569] text-white rounded-xl p-3 placeholder-gray-400"
     : "bg-gray-100 border border-gray-300 text-gray-900 rounded-xl p-3 placeholder-gray-500";
 
   return (
-    <div className={isDark ? "min-h-screen bg-[#0f172a] text-white" : "min-h-screen bg-[#f8fafc] text-gray-900"}>
+    <div
+      className={
+        isDark
+          ? "min-h-screen bg-[#0f172a] text-white"
+          : "min-h-screen bg-[#f8fafc] text-gray-900"
+      }
+    >
       <div className="max-w-6xl mx-auto p-8">
         {/* Header */}
-        <header className={`flex items-center justify-between mb-8 border-b pb-4 ${isDark ? "border-[#475569]" : "border-gray-300"}`}>
+        <header
+          className={`flex items-center justify-between mb-8 border-b pb-4 ${
+            isDark ? "border-[#475569]" : "border-gray-300"
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 6 }}>
+            <motion.div
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ repeat: Infinity, duration: 6 }}
+            >
               <Database className="w-10 h-10 text-indigo-400" />
             </motion.div>
             <h1 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent">
@@ -61,7 +83,9 @@ export default function App() {
           <button
             onClick={() => setTheme(isDark ? "light" : "dark")}
             className={`border rounded-xl px-3 py-1 font-semibold ${
-              isDark ? "border-gray-400 text-white hover:bg-slate-700" : "border-gray-400 hover:bg-gray-200"
+              isDark
+                ? "border-gray-400 text-white hover:bg-slate-700"
+                : "border-gray-400 hover:bg-gray-200"
             }`}
           >
             {isDark ? "Light Mode" : "Dark Mode"}
@@ -76,12 +100,52 @@ export default function App() {
               <Database className="w-5 h-5 text-indigo-400" /> Input
             </h2>
 
+            {/* DBMS */}
             <label className="text-sm">DBMS</label>
-            <select value={dbms} onChange={(e) => setDbms(e.target.value)} className={`${inputCls} w-full mb-3`}>
+            <select
+              value={dbms}
+              onChange={(e) => setDbms(e.target.value)}
+              className={`${inputCls} w-full mb-3`}
+            >
               <option value="sqlserver">SQL Server</option>
               <option value="postgres">PostgreSQL</option>
               <option value="mysql">MySQL</option>
             </select>
+
+            {/* ✅ SQL Server version selector */}
+            {dbms === "sqlserver" && (
+              <>
+                <label className="text-sm flex items-center justify-between">
+                  SQL Server Version
+                  <span
+                    className="text-xs text-indigo-400 cursor-help"
+                    title={`Key features by version:
+• 2012 → Window Functions (LAG, LEAD)
+• 2014 → In-Memory OLTP
+• 2016 → Query Store, JSON support
+• 2017 → STRING_AGG, Graph Tables
+• 2019 → Intelligent Query Processing
+• 2022 → Parameter Sensitive Plan Optimization`}
+                  >
+                    (see highlights)
+                  </span>
+                </label>
+                <select
+                  onChange={(e) => setVersion(e.target.value)}
+                  value={version}
+                  className={`${inputCls} w-full mb-3`}
+                >
+                  <option value="">Select version</option>
+                  <option value="2008 R2">SQL Server 2008 R2</option>
+                  <option value="2012">SQL Server 2012</option>
+                  <option value="2014">SQL Server 2014</option>
+                  <option value="2016">SQL Server 2016</option>
+                  <option value="2017">SQL Server 2017</option>
+                  <option value="2019">SQL Server 2019</option>
+                  <option value="2022">SQL Server 2022</option>
+                </select>
+              </>
+            )}
 
             <label className="text-sm">SQL Query</label>
             <textarea
@@ -115,7 +179,7 @@ export default function App() {
               disabled={loading}
               className="bg-gradient-to-b from-indigo-500 to-indigo-600 text-white px-4 py-2 rounded-xl font-semibold hover:opacity-90"
             >
-              {loading ? "Analysis in progress. Please wait…" : "Analyze"}
+              {loading ? "Deep diving into your query..." : "Analyze"}
             </button>
             {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
           </div>
@@ -126,13 +190,19 @@ export default function App() {
               <Database className="w-5 h-5 text-emerald-400" /> Results
             </h2>
 
-            {!result && <p className={subtleText}>No analysis yet. Paste a query and click Analyze.</p>}
+            {!result && (
+              <p className={subtleText}>No analysis yet. Paste a query and click Analyze.</p>
+            )}
 
             {result && (
               <div className="space-y-6">
                 {/* Summary */}
                 <section>
-                  <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
+                  <h4
+                    className={`font-semibold mb-1 ${
+                      isDark ? "text-indigo-300" : "text-indigo-700"
+                    }`}
+                  >
                     Summary
                   </h4>
                   <p className={isDark ? "text-white" : "text-gray-800"}>
@@ -143,12 +213,19 @@ export default function App() {
                 {/* Findings */}
                 {result.findings?.length > 0 && (
                   <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
+                    <h4
+                      className={`font-semibold mb-1 ${
+                        isDark ? "text-indigo-300" : "text-indigo-700"
+                      }`}
+                    >
                       Findings
                     </h4>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       {result.findings.map((f, i) => (
-                        <li key={i} className={isDark ? "text-white" : "text-gray-800"}>
+                        <li
+                          key={i}
+                          className={isDark ? "text-gray-100" : "text-gray-800"}
+                        >
                           {f}
                         </li>
                       ))}
@@ -159,13 +236,17 @@ export default function App() {
                 {/* Rewritten SQL */}
                 {result.rewrite_sql && (
                   <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
+                    <h4
+                      className={`font-semibold mb-1 ${
+                        isDark ? "text-indigo-300" : "text-indigo-700"
+                      }`}
+                    >
                       Rewritten SQL
                     </h4>
                     <pre
                       className={`${
                         isDark
-                          ? "bg-[#0f172a] text-white"
+                          ? "bg-[#0f172a] text-gray-100"
                           : "bg-gray-100 text-gray-800"
                       } border border-slate-600 rounded-lg p-3 whitespace-pre-wrap overflow-x-auto`}
                     >
@@ -177,12 +258,19 @@ export default function App() {
                 {/* Index Recommendations */}
                 {result.index_recommendations?.length > 0 && (
                   <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
+                    <h4
+                      className={`font-semibold mb-1 ${
+                        isDark ? "text-indigo-300" : "text-indigo-700"
+                      }`}
+                    >
                       Index Recommendations
                     </h4>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       {result.index_recommendations.map((ix, i) => (
-                        <li key={i} className={isDark ? "text-white" : "text-gray-800"}>
+                        <li
+                          key={i}
+                          className={isDark ? "text-gray-100" : "text-gray-800"}
+                        >
                           {ix}
                         </li>
                       ))}
@@ -193,12 +281,19 @@ export default function App() {
                 {/* Risks */}
                 {result.risks?.length > 0 && (
                   <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
+                    <h4
+                      className={`font-semibold mb-1 ${
+                        isDark ? "text-indigo-300" : "text-indigo-700"
+                      }`}
+                    >
                       Potential Risks
                     </h4>
                     <ul className="list-disc pl-5 space-y-1 text-sm">
                       {result.risks.map((r, i) => (
-                        <li key={i} className={isDark ? "text-white" : "text-gray-800"}>
+                        <li
+                          key={i}
+                          className={isDark ? "text-gray-100" : "text-gray-800"}
+                        >
                           {r}
                         </li>
                       ))}
@@ -209,12 +304,19 @@ export default function App() {
                 {/* Validation Steps */}
                 {result.test_steps?.length > 0 && (
                   <section>
-                    <h4 className={`font-semibold mb-1 ${isDark ? "text-indigo-300" : "text-indigo-700"}`}>
+                    <h4
+                      className={`font-semibold mb-1 ${
+                        isDark ? "text-indigo-300" : "text-indigo-700"
+                      }`}
+                    >
                       Validation Steps
                     </h4>
                     <ol className="list-decimal pl-5 space-y-1 text-sm">
                       {result.test_steps.map((s, i) => (
-                        <li key={i} className={isDark ? "text-white" : "text-gray-800"}>
+                        <li
+                          key={i}
+                          className={isDark ? "text-gray-100" : "text-gray-800"}
+                        >
                           {s}
                         </li>
                       ))}
@@ -229,7 +331,9 @@ export default function App() {
         {/* Footer */}
         <footer
           className={`mt-8 text-sm text-center border-t pt-4 ${
-            isDark ? "text-gray-400 border-[#475569]" : "text-gray-500 border-gray-300"
+            isDark
+              ? "text-gray-400 border-[#475569]"
+              : "text-gray-500 border-gray-300"
           }`}
         >
           <p>© {new Date().getFullYear()} SQL Optimizer — Powered by AI</p>
